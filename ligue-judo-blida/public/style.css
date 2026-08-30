@@ -1,0 +1,242 @@
+:root{
+  --green-dark:#0e3d2b;
+  --green:#175c40;
+  --green-light:#1f7a54;
+  --red:#c1272d;
+  --gold:#d4af37;
+  --cream:#faf7ef;
+  --gray:#5c6b64;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:'Segoe UI', Tahoma, Arial, sans-serif;
+  background:var(--cream);
+  color:#1c2b24;
+}
+
+/* ---------------- LOGIN ---------------- */
+.login-screen{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle at 50% 20%, var(--green) 0%, var(--green-dark) 60%, #062015 100%);
+  position:relative;
+  overflow:hidden;
+  padding:20px;
+}
+.judo-bg-deco{
+  position:absolute;
+  inset:0;
+  opacity:0.08;
+  background-image:
+    repeating-linear-gradient(45deg, #fff 0 2px, transparent 2px 40px);
+  pointer-events:none;
+}
+.login-card{
+  position:relative;
+  background:rgba(10,30,22,0.55);
+  border:1px solid rgba(212,175,55,0.35);
+  border-radius:20px;
+  padding:36px 28px 26px;
+  max-width:360px;
+  width:100%;
+  text-align:center;
+  backdrop-filter:blur(6px);
+  box-shadow:0 20px 50px rgba(0,0,0,0.4);
+}
+.logo-wrap{margin-bottom:10px;}
+.league-logo{width:120px;height:120px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));}
+.mini-logo{width:42px;height:42px;flex-shrink:0;}
+.league-title{
+  color:#fff;
+  font-weight:800;
+  letter-spacing:2px;
+  font-size:20px;
+  margin-top:6px;
+}
+.league-sub{
+  color:var(--gold);
+  font-size:13px;
+  letter-spacing:1px;
+  margin-bottom:22px;
+}
+.access-input{
+  width:100%;
+  padding:13px 16px;
+  border-radius:10px;
+  border:1px solid rgba(193,39,45,0.6);
+  background:rgba(0,0,0,0.25);
+  color:#fff;
+  font-size:15px;
+  margin-bottom:16px;
+  outline:none;
+}
+.access-input::placeholder{color:#c9d3ce;}
+.access-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(193,39,45,0.25);}
+.btn-enter{
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:10px;
+  background:var(--red);
+  color:#fff;
+  font-weight:700;
+  letter-spacing:1px;
+  font-size:15px;
+  cursor:pointer;
+  transition:transform .15s, background .15s;
+}
+.btn-enter:hover{background:#a91f24;transform:translateY(-1px);}
+.login-error{color:#ff8a8a;font-size:13px;margin-top:10px;min-height:16px;}
+.hidden-signature{
+  margin-top:22px;
+  font-size:10px;
+  color:rgba(255,255,255,0.12);
+  letter-spacing:2px;
+  user-select:none;
+}
+
+/* ---------------- APP SHELL ---------------- */
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:linear-gradient(135deg, var(--green-dark), var(--green));
+  color:#fff;
+  padding:12px 16px;
+  position:sticky;
+  top:0;
+  z-index:20;
+}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.topbar-title{font-weight:800;font-size:15px;letter-spacing:0.5px;}
+.topbar-season{font-size:11px;color:var(--gold);}
+.btn-logout{
+  background:rgba(255,255,255,0.12);
+  border:1px solid rgba(255,255,255,0.3);
+  color:#fff;
+  padding:7px 12px;
+  border-radius:8px;
+  font-size:12px;
+  cursor:pointer;
+}
+
+.tabs{
+  display:flex;
+  overflow-x:auto;
+  background:#fff;
+  border-bottom:2px solid var(--green-dark);
+  position:sticky;
+  top:60px;
+  z-index:19;
+}
+.tab-btn{
+  flex:1 0 auto;
+  padding:12px 14px;
+  border:none;
+  background:transparent;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--gray);
+  cursor:pointer;
+  white-space:nowrap;
+  border-bottom:3px solid transparent;
+}
+.tab-btn.active{color:var(--green-dark);border-bottom-color:var(--red);}
+
+.main-content{padding:16px;max-width:960px;margin:0 auto;padding-bottom:60px;}
+
+/* ---------------- CARDS / GENERIC ---------------- */
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:16px;
+  margin-bottom:14px;
+  box-shadow:0 2px 10px rgba(14,61,43,0.08);
+  border:1px solid #ece6d6;
+}
+.card h3{margin:0 0 10px;color:var(--green-dark);font-size:15px;}
+.grid-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(min-width:600px){.grid-stats{grid-template-columns:repeat(4,1fr);}}
+.stat-box{
+  background:linear-gradient(135deg, var(--green-dark), var(--green));
+  color:#fff;
+  border-radius:12px;
+  padding:14px;
+  text-align:center;
+}
+.stat-box .num{font-size:20px;font-weight:800;}
+.stat-box.red{background:linear-gradient(135deg,#8f1f22,var(--red));}
+.stat-box .label{font-size:11px;opacity:0.85;margin-top:2px;}
+
+.btn{
+  border:none;
+  border-radius:9px;
+  padding:10px 14px;
+  font-weight:600;
+  font-size:13px;
+  cursor:pointer;
+}
+.btn-primary{background:var(--red);color:#fff;}
+.btn-primary:hover{background:#a91f24;}
+.btn-secondary{background:var(--green-dark);color:#fff;}
+.btn-outline{background:#fff;border:1px solid var(--green-dark);color:var(--green-dark);}
+.btn-small{padding:6px 10px;font-size:12px;border-radius:7px;}
+.btn-danger{background:#fff;color:var(--red);border:1px solid var(--red);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+
+/* ---------------- CLUB CARD ---------------- */
+.club-card{border-left:5px solid var(--red);}
+.club-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.club-name{font-weight:800;color:var(--green-dark);font-size:16px;}
+.club-manager{font-size:12.5px;color:var(--gray);}
+.badge{
+  display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;
+}
+.badge-ok{background:#e3f5ea;color:#1a7a45;}
+.badge-warn{background:#fdeaea;color:var(--red);}
+
+table.table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;}
+table.table th, table.table td{padding:7px 6px;text-align:center;border-bottom:1px solid #eee;}
+table.table th{background:#f4f1e6;color:var(--green-dark);font-size:11.5px;}
+table.table td.label-col, table.table th.label-col{text-align:left;}
+
+.progress-bar{background:#eee;border-radius:20px;height:8px;overflow:hidden;margin-top:4px;}
+.progress-fill{height:100%;background:var(--green-light);}
+.progress-fill.warn{background:var(--red);}
+
+.form-group{margin-bottom:12px;}
+.form-group label{display:block;font-size:12.5px;font-weight:600;color:var(--green-dark);margin-bottom:5px;}
+.form-group input, .form-group select{
+  width:100%;padding:9px 10px;border-radius:8px;border:1px solid #ddd;font-size:13.5px;
+}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+/* ---------------- MODAL ---------------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(6,20,14,0.55);
+  display:flex;align-items:flex-end;justify-content:center;z-index:100;
+}
+@media(min-width:700px){.modal-overlay{align-items:center;}}
+.modal-box{
+  background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:520px;
+  max-height:90vh;overflow-y:auto;
+}
+@media(min-width:700px){.modal-box{border-radius:16px;}}
+.modal-title{font-weight:800;color:var(--green-dark);font-size:16px;margin-bottom:14px;}
+.close-x{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray);}
+
+.payment-entry{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed #eee;font-size:12.5px;}
+
+.season-archive-card{border-left:5px solid var(--gold);}
+
+/* Print */
+@media print{
+  .login-screen, .topbar, .tabs, .btn-row, .modal-overlay, .no-print{display:none !important;}
+  .main-content{padding:0;max-width:100%;}
+  .card{box-shadow:none;border:1px solid #333;break-inside:avoid;}
+  body{background:#fff;}
+}

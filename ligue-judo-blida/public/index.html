@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ligue de Judo Blida</title>
+<link rel="icon" href="data:,">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===================== ECRAN DE CONNEXION ===================== -->
+<div id="loginScreen" class="login-screen">
+  <div class="judo-bg-deco" aria-hidden="true"></div>
+  <div class="login-card">
+    <div class="logo-wrap">
+      <svg viewBox="0 0 200 200" class="league-logo">
+        <circle cx="100" cy="100" r="94" fill="#0e3d2b"/>
+        <circle cx="100" cy="100" r="94" fill="none" stroke="#175c40" stroke-width="10"/>
+        <circle cx="100" cy="100" r="80" fill="#fff"/>
+        <path d="M40 100 C55 60, 90 45, 120 55 C110 75, 105 95, 118 115 C95 125, 65 120, 40 100 Z" fill="#c1272d" opacity="0.85"/>
+        <g fill="none" stroke="#0e3d2b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M55 130 C70 120, 80 110, 82 95 C95 100, 108 92, 112 78 C122 82, 138 70, 142 55"/>
+          <path d="M82 95 C95 105, 105 118, 100 138 C88 132, 75 138, 68 150"/>
+          <circle cx="146" cy="50" r="9" fill="#0e3d2b"/>
+        </g>
+        <path id="topCurve" d="M28,100 A72,72 0 0 1 172,100" fill="none"/>
+        <path id="botCurve" d="M172,100 A72,72 0 0 1 28,100" fill="none"/>
+        <text font-size="13" fill="#fff" font-weight="700" letter-spacing="2">
+          <textPath href="#topCurve" startOffset="50%" text-anchor="middle">LIGUE DE JUDO</textPath>
+        </text>
+        <text font-size="13" fill="#fff" font-weight="700" letter-spacing="2">
+          <textPath href="#botCurve" startOffset="50%" text-anchor="middle">BLIDA</textPath>
+        </text>
+      </svg>
+    </div>
+    <div class="league-title">LIGUE DE JUDO BLIDA</div>
+    <div class="league-sub">Saison sportive <span id="loginSeason">2026/2027</span></div>
+    <input type="password" id="passwordInput" class="access-input" placeholder="Code d'accès" autocomplete="off">
+    <button id="loginBtn" class="btn-enter">ENTRER</button>
+    <div id="loginError" class="login-error"></div>
+    <div class="hidden-signature">Ραχεντι Χαντιλ</div>
+  </div>
+</div>
+
+<!-- ===================== APPLICATION ===================== -->
+<div id="appScreen" class="app-screen" style="display:none;">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <svg viewBox="0 0 200 200" class="mini-logo">
+        <circle cx="100" cy="100" r="94" fill="#0e3d2b"/>
+        <circle cx="100" cy="100" r="80" fill="#fff"/>
+        <path d="M40 100 C55 60, 90 45, 120 55 C110 75, 105 95, 118 115 C95 125, 65 120, 40 100 Z" fill="#c1272d" opacity="0.85"/>
+        <g fill="none" stroke="#0e3d2b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M55 130 C70 120, 80 110, 82 95 C95 100, 108 92, 112 78 C122 82, 138 70, 142 55"/>
+        </g>
+      </svg>
+      <div>
+        <div class="topbar-title">Ligue de Judo Blida</div>
+        <div class="topbar-season">Saison : <span id="currentSeasonLabel">2026/2027</span></div>
+      </div>
+    </div>
+    <button id="logoutBtn" class="btn-logout">Quitter</button>
+  </header>
+
+  <nav class="tabs" id="tabsNav">
+    <button class="tab-btn active" data-tab="dashboard">Tableau de bord</button>
+    <button class="tab-btn" data-tab="clubs">Clubs</button>
+    <button class="tab-btn" data-tab="stats">Statistiques</button>
+    <button class="tab-btn" data-tab="archives">Archives</button>
+    <button class="tab-btn" data-tab="settings">Réglages</button>
+  </nav>
+
+  <main id="mainContent" class="main-content"></main>
+</div>
+
+<!-- ===================== MODALES (conteneur générique) ===================== -->
+<div id="modalOverlay" class="modal-overlay" style="display:none;">
+  <div id="modalBox" class="modal-box"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

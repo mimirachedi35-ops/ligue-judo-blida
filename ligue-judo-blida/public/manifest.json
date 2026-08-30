@@ -1,0 +1,9 @@
+{
+  "name": "Ligue de Judo Blida",
+  "short_name": "Ligue Judo Blida",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e3d2b",
+  "theme_color": "#0e3d2b",
+  "icons": []
+}
