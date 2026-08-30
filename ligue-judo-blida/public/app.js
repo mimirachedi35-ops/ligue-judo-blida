@@ -4,12 +4,12 @@
 
 const CATS = ['akabir','awasit','achbal','asghar','baraem','katakit'];
 const CAT_LABELS = {
-  akabir: 'Akabir (Séniors)',
-  awasit: 'Awasit (Juniors)',
-  achbal: 'Achbal (Cadets)',
-  asghar: 'Asghar (Minimes)',
-  baraem: 'Baraem (Benjamins)',
-  katakit: 'Katakit (Poussins)'
+  akabir: 'Séniors',
+  awasit: 'Juniors',
+  achbal: 'Cadets',
+  asghar: 'Minimes',
+  baraem: 'Benjamins',
+  katakit: 'Poussins'
 };
 
 let STATE = null;
@@ -84,13 +84,18 @@ async function loadStateAndStart(){
 }
 
 /* ---------------- TABS ---------------- */
-document.querySelectorAll('.tab-btn').forEach(btn=>{
+document.querySelectorAll('.tab-box').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-box').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     renderTab(btn.dataset.tab);
   });
 });
+
+const JUDOGI_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-1.1 0-2 .9-2 2v1.2C7.6 5.9 6 7.9 6 10.3V13l-2 2v3c0 1.1.9 2 2 2h1v2h2v-2h6v2h2v-2h1c1.1 0 2-.9 2-2v-3l-2-2v-2.7c0-2.4-1.6-4.4-4-5.1V4c0-1.1-.9-2-2-2z"/></svg>`;
+function emptyState(text){
+  return `<div class="empty-state">${JUDOGI_ICON}<p>${text}</p></div>`;
+}
 
 function renderTab(tab){
   currentTab = tab;
@@ -230,45 +235,51 @@ function openNewSeasonModal(){
    CLUBS
    ============================================================ */
 function renderClubs(main){
-  const clubs = STATE.clubs;
   main.innerHTML = `
-    <div class="btn-row">
-      <button class="btn btn-primary" id="btnAddClub">+ Ajouter un club</button>
-      <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimer la liste</button>
+    <div class="card">
+      <h3>Clubs affiliés</h3>
+      <p class="card-desc">Cliquez sur un club pour voir sa fiche complète et ses règlements.</p>
+      <div class="search-row">
+        <input type="text" id="clubSearch" placeholder="Rechercher un club...">
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ Imprimer</button>
+      </div>
+      <div id="clubsList"></div>
     </div>
-    <div id="clubsList"></div>
+    <button class="fab" id="btnAddClub" title="Ajouter un club">+</button>
   `;
   document.getElementById('btnAddClub').addEventListener('click', ()=>openClubModal(null));
-
-  const list = document.getElementById('clubsList');
-  if(clubs.length===0){
-    list.innerHTML = `<div class="card"><p style="color:var(--gray);font-size:13px;">Aucun club enregistré pour le moment.</p></div>`;
-    return;
-  }
-  list.innerHTML = clubs.map(club=>clubCardHtml(club)).join('');
-
-  clubs.forEach(club=>{
-    document.getElementById('edit_'+club.id).addEventListener('click', ()=>openClubModal(club.id));
-    document.getElementById('del_'+club.id).addEventListener('click', ()=>deleteClub(club.id));
-    document.getElementById('pay_'+club.id).addEventListener('click', ()=>openPaymentModal(club.id));
-    document.getElementById('print_'+club.id).addEventListener('click', ()=>printClub(club.id));
-  });
+  document.getElementById('clubSearch').addEventListener('input', (e)=>renderClubsListFiltered(e.target.value));
+  renderClubsListFiltered('');
 }
 
-function clubCardHtml(club){
+function renderClubsListFiltered(query){
+  const q = (query||'').trim().toLowerCase();
+  const clubs = STATE.clubs.filter(c=>!q || c.name.toLowerCase().includes(q));
+  const list = document.getElementById('clubsList');
+  if(clubs.length===0){
+    list.innerHTML = emptyState('Aucun club enregistré pour le moment.');
+    return;
+  }
+  list.innerHTML = clubs.map(club=>{
+    const due = clubTotalDue(club), paid = clubTotalPaid(club);
+    const okBadge = due>0 && paid>=due;
+    return `
+    <div class="list-row" onclick="openClubDetail('${club.id}')">
+      <div>
+        <div class="list-row-name">${esc(club.name)||'(Sans nom)'}</div>
+        <div class="list-row-sub">${clubTotalLicenses(club)} judokas — ${club.coachesCount||0} entraîneurs</div>
+      </div>
+      <div style="text-align:right;">
+        <span class="badge ${okBadge?'badge-ok':'badge-warn'}">${okBadge?'À jour':money(Math.max(0,due-paid))+' restant'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clubDetailHtml(club){
   const due = clubTotalDue(club), paid = clubTotalPaid(club);
   const pct = due>0 ? Math.min(100, Math.round(paid/due*100)) : 0;
-  const okBadge = due>0 && paid>=due;
   return `
-  <div class="card club-card" id="card_${club.id}">
-    <div class="club-header">
-      <div>
-        <div class="club-name">${esc(club.name)||'(Sans nom)'}</div>
-        <div class="club-manager">Directeur du club : ${esc(club.manager)||'—'}</div>
-      </div>
-      <span class="badge ${okBadge?'badge-ok':'badge-warn'}">${okBadge?'À jour':'Reste dû: '+money(due-paid)}</span>
-    </div>
-
     <table class="table">
       <thead><tr><th class="label-col">Catégorie</th><th>Licenciés</th><th>G</th><th>F</th><th>Payé</th></tr></thead>
       <tbody>
@@ -292,17 +303,26 @@ function clubCardHtml(club){
         </tr>
       </tbody>
     </table>
-
     <div class="progress-bar"><div class="progress-fill ${pct<100?'warn':''}" style="width:${pct}%"></div></div>
-    <p style="font-size:11.5px;color:var(--gray);margin:6px 0 0;">Total licenciés: <b>${clubTotalLicenses(club)}</b> (G:${clubTotalMale(club)} / F:${clubTotalFemale(club)}) — Payé ${money(paid)} sur ${money(due)}</p>
+    <p style="font-size:11.5px;color:var(--text-muted);margin:8px 0 0;">Total licenciés : <b style="color:#fff;">${clubTotalLicenses(club)}</b> (G:${clubTotalMale(club)} / F:${clubTotalFemale(club)}) — Payé ${money(paid)} sur ${money(due)}</p>
+  `;
+}
 
-    <div class="btn-row" style="margin-top:12px;">
-      <button class="btn btn-small btn-secondary" id="pay_${club.id}">💰 Règlements</button>
-      <button class="btn btn-small btn-outline" id="edit_${club.id}">Modifier</button>
-      <button class="btn btn-small btn-outline" id="print_${club.id}">🖨️ Imprimer</button>
-      <button class="btn btn-small btn-danger" id="del_${club.id}">Supprimer</button>
+function openClubDetail(clubId){
+  const club = STATE.clubs.find(c=>c.id===clubId);
+  if(!club) return;
+  openModal(`
+    <button class="close-x" onclick="closeModal()">×</button>
+    <div class="modal-title">${esc(club.name)||'(Sans nom)'}</div>
+    <p style="font-size:12.5px;color:var(--text-muted);margin-top:-10px;">Directeur du club : ${esc(club.manager)||'—'}</p>
+    <div id="clubDetailBody">${clubDetailHtml(club)}</div>
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="btn btn-small btn-secondary" onclick="openPaymentModal('${club.id}')">💰 Règlements</button>
+      <button class="btn btn-small btn-outline" onclick="openClubModal('${club.id}')">Modifier</button>
+      <button class="btn btn-small btn-outline" onclick="printClub('${club.id}')">🖨️ Imprimer</button>
+      <button class="btn btn-small btn-danger" onclick="deleteClub('${club.id}')">Supprimer</button>
     </div>
-  </div>`;
+  `);
 }
 
 function esc(s){ return (s||'').toString().replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
@@ -358,6 +378,7 @@ async function deleteClub(clubId){
   if(!confirm('Supprimer définitivement ce club et toutes ses données de paiement ?')) return;
   STATE.clubs = STATE.clubs.filter(c=>c.id!==clubId);
   await saveState();
+  closeModal();
   renderTab('clubs');
 }
 
@@ -529,7 +550,7 @@ function renderStats(main){
 function renderArchives(main){
   const archives = STATE.archives || [];
   if(archives.length===0){
-    main.innerHTML = `<div class="card"><p style="color:var(--gray);font-size:13px;">Aucune saison archivée pour le moment.</p></div>`;
+    main.innerHTML = `<div class="card">${emptyState('Aucune saison archivée pour le moment.')}</div>`;
     return;
   }
   main.innerHTML = archives.slice().reverse().map((arch,idx)=>{
@@ -631,4 +652,9 @@ document.getElementById('modalOverlay').addEventListener('click', (e)=>{
 });
 
 /* ---------------- START ---------------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  });
+}
 checkAuthOnLoad();

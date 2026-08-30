@@ -1,9 +1,17 @@
 {
-  "name": "Ligue de Judo Blida",
+  "name": "Ligue de Judo — Wilaya de Blida",
   "short_name": "Ligue Judo Blida",
+  "description": "Application de gestion de la Ligue de Judo de Blida",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0e3d2b",
-  "theme_color": "#0e3d2b",
-  "icons": []
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "logo.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" },
+    { "src": "logo.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" },
+    { "src": "logo.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "maskable" },
+    { "src": "logo.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "maskable" }
+  ]
 }
