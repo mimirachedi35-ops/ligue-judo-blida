@@ -284,7 +284,7 @@ table.table td.label-col, table.table th.label-col{text-align:left;}
 
 /* Print */
 @media print{
-  .login-screen, .topbar, .topbar-actions, .red-divider, .tabs-grid, .btn-row, .fab, .modal-overlay, .search-row{display:none !important;}
+  .login-screen, .topbar, .topbar-actions, .red-divider, .tabs-grid, .btn-row, .fab, .modal-overlay, .search-row, .no-print{display:none !important;}
   body{background:#fff;color:#000;}
   .main-content{padding:0;max-width:100%;}
   .card{background:#fff;border:1px solid #999;color:#000;break-inside:avoid;}

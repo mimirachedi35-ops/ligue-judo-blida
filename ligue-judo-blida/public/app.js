@@ -76,6 +76,7 @@ document.getElementById('logoutBtn').addEventListener('click', async ()=>{
 
 async function loadStateAndStart(){
   STATE = await api('/api/state');
+  if(!STATE.treasury) STATE.treasury = [];
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('loginSeason').textContent = STATE.currentSeason;
@@ -102,6 +103,8 @@ function renderTab(tab){
   const main = document.getElementById('mainContent');
   if(tab==='dashboard') return renderDashboard(main);
   if(tab==='clubs') return renderClubs(main);
+  if(tab==='journal') return renderJournal(main);
+  if(tab==='caisse') return renderCaisse(main);
   if(tab==='stats') return renderStats(main);
   if(tab==='archives') return renderArchives(main);
   if(tab==='settings') return renderSettings(main);
@@ -166,27 +169,38 @@ function renderDashboard(main){
   const totalMale = clubs.reduce((s,c)=>s+clubTotalMale(c),0);
   const totalFemale = clubs.reduce((s,c)=>s+clubTotalFemale(c),0);
   const totalCoaches = clubs.reduce((s,c)=>s+(c.coachesCount||0),0);
+  const totalReferees = clubs.reduce((s,c)=>s+(c.refereesCount||0),0);
   const totalDue = clubs.reduce((s,c)=>s+clubTotalDue(c),0);
   const totalPaid = clubs.reduce((s,c)=>s+clubTotalPaid(c),0);
 
   main.innerHTML = `
     <div class="card">
+      <h3>Recherche rapide</h3>
+      <p class="card-desc">Tapez le nom d'un club pour voir toutes ses informations.</p>
+      <div class="search-row">
+        <input type="text" id="quickSearch" placeholder="Nom du club...">
+      </div>
+      <div id="quickSearchResults"></div>
+    </div>
+
+    <div class="card">
       <h3>Vue d'ensemble — Saison ${STATE.currentSeason}</h3>
       <div class="grid-stats">
-        <div class="stat-box"><div class="num">${clubs.length}</div><div class="label">Clubs affiliés</div></div>
-        <div class="stat-box"><div class="num">${totalLicenses}</div><div class="label">Judokas licenciés</div></div>
-        <div class="stat-box"><div class="num">${totalMale} / ${totalFemale}</div><div class="label">Garçons / Filles</div></div>
-        <div class="stat-box"><div class="num">${totalCoaches}</div><div class="label">Entraîneurs</div></div>
+        <div class="stat-box plain"><div class="num">${clubs.length}</div><div class="label">Clubs affiliés</div></div>
+        <div class="stat-box plain"><div class="num">${totalLicenses}</div><div class="label">Judokas licenciés</div></div>
+        <div class="stat-box plain"><div class="num">${totalMale} / ${totalFemale}</div><div class="label">Garçons / Filles</div></div>
+        <div class="stat-box plain"><div class="num">${totalCoaches}</div><div class="label">Entraîneurs</div></div>
+        <div class="stat-box plain"><div class="num">${totalReferees}</div><div class="label">Arbitres</div></div>
       </div>
     </div>
 
     <div class="card">
       <h3>Encaissements de la Ligue</h3>
       <div class="grid-stats">
-        <div class="stat-box red"><div class="num">${money(sumByPeriod(entries,'day'))}</div><div class="label">Aujourd'hui</div></div>
-        <div class="stat-box red"><div class="num">${money(sumByPeriod(entries,'month'))}</div><div class="label">Ce mois</div></div>
-        <div class="stat-box red"><div class="num">${money(sumByPeriod(entries,'year'))}</div><div class="label">Cette année</div></div>
-        <div class="stat-box"><div class="num">${money(totalPaid)}</div><div class="label">Total encaissé (saison)</div></div>
+        <div class="stat-box"><div class="num">${money(sumByPeriod(entries,'day'))}</div><div class="label">Aujourd'hui</div></div>
+        <div class="stat-box"><div class="num">${money(sumByPeriod(entries,'month'))}</div><div class="label">Ce mois</div></div>
+        <div class="stat-box"><div class="num">${money(sumByPeriod(entries,'year'))}</div><div class="label">Cette année</div></div>
+        <div class="stat-box plain"><div class="num">${money(totalPaid)}</div><div class="label">Total encaissé (saison)</div></div>
       </div>
       <p style="font-size:12.5px;color:var(--gray);margin-top:10px;">
         Total attendu (selon tarifs) : <b>${money(totalDue)}</b> — Reste à percevoir : <b>${money(totalDue-totalPaid)}</b>
@@ -195,7 +209,7 @@ function renderDashboard(main){
 
     <div class="card">
       <h3>Renouvellement de saison</h3>
-      <p style="font-size:12.5px;color:var(--gray);">
+      <p class="card-desc">
         Archive la saison en cours (clubs, licences, règlements) et repart avec une liste de clubs vide pour la nouvelle saison.
         Les données archivées restent consultables dans l'onglet Archives.
       </p>
@@ -206,6 +220,23 @@ function renderDashboard(main){
   `;
 
   document.getElementById('btnNewSeason').addEventListener('click', openNewSeasonModal);
+  document.getElementById('quickSearch').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    const box = document.getElementById('quickSearchResults');
+    if(!q){ box.innerHTML=''; return; }
+    const matches = STATE.clubs.filter(c=>c.name.toLowerCase().includes(q));
+    box.innerHTML = matches.length===0
+      ? `<p style="font-size:12.5px;color:var(--gray);margin-top:10px;">Aucun club trouvé.</p>`
+      : matches.map(c=>`
+        <div class="list-row" onclick="openClubDetail('${c.id}')">
+          ${clubThumbHtml(c)}
+          <div style="flex:1;margin-left:10px;">
+            <div class="list-row-name">${esc(c.name)}</div>
+            <div class="list-row-sub">${clubTotalLicenses(c)} judokas</div>
+          </div>
+          <span class="list-row-chevron">›</span>
+        </div>`).join('');
+  });
 }
 
 function openNewSeasonModal(){
@@ -252,6 +283,54 @@ function renderClubs(main){
   renderClubsListFiltered('');
 }
 
+function clubPaymentEntries(club){
+  const list = [];
+  CATS.forEach(cat=> (club.payments[cat]||[]).forEach(p=>list.push({...p, poste:CAT_LABELS[cat]})));
+  (club.payments.coaches||[]).forEach(p=>list.push({...p, poste:'Entraîneurs'}));
+  (club.payments.referees||[]).forEach(p=>list.push({...p, poste:'Arbitres'}));
+  return list;
+}
+function lastPaidDate(list){
+  if(!list || list.length===0) return null;
+  return list.reduce((max,p)=> (!max || new Date(p.date)>new Date(max)) ? p.date : max, null);
+}
+function statusCellHtml(paidList, due){
+  const paid = (paidList||[]).reduce((s,p)=>s+Number(p.amount||0),0);
+  if(due<=0) return `<span style="color:var(--text-muted);">—</span>`;
+  if(paid>=due){
+    const d = lastPaidDate(paidList);
+    return `<span class="badge badge-ok">Réglé${d?(' le '+new Date(d).toLocaleDateString('fr-FR')):''}</span>`;
+  }
+  return `<span class="badge badge-warn">Reste ${money(due-paid)}</span>`;
+}
+function clubThumbHtml(club){
+  if(club.photo){
+    return `<img src="${club.photo}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;">`;
+  }
+  return `<div style="width:44px;height:44px;border-radius:10px;background:var(--card-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-muted);font-size:18px;font-weight:800;">${esc(club.name||'?').charAt(0).toUpperCase()}</div>`;
+}
+function readAndCompressImage(file, maxSize=500, quality=0.75){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w>h){ if(w>maxSize){h=Math.round(h*maxSize/w); w=maxSize;} }
+        else { if(h>maxSize){w=Math.round(w*maxSize/h); h=maxSize;} }
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function renderClubsListFiltered(query){
   const q = (query||'').trim().toLowerCase();
   const clubs = STATE.clubs.filter(c=>!q || c.name.toLowerCase().includes(q));
@@ -265,13 +344,12 @@ function renderClubsListFiltered(query){
     const okBadge = due>0 && paid>=due;
     return `
     <div class="list-row" onclick="openClubDetail('${club.id}')">
-      <div>
+      ${clubThumbHtml(club)}
+      <div style="flex:1;margin-left:10px;">
         <div class="list-row-name">${esc(club.name)||'(Sans nom)'}</div>
-        <div class="list-row-sub">${clubTotalLicenses(club)} judokas — ${club.coachesCount||0} entraîneurs</div>
+        <div class="list-row-sub">${clubTotalLicenses(club)} judokas — ${club.coachesCount||0} entraîneurs — ${club.refereesCount||0} arbitres</div>
       </div>
-      <div style="text-align:right;">
-        <span class="badge ${okBadge?'badge-ok':'badge-warn'}">${okBadge?'À jour':money(Math.max(0,due-paid))+' restant'}</span>
-      </div>
+      <span class="badge ${okBadge?'badge-ok':'badge-warn'}">${okBadge?'À jour':money(Math.max(0,due-paid))+' restant'}</span>
     </div>`;
   }).join('');
 }
@@ -279,9 +357,17 @@ function renderClubsListFiltered(query){
 function clubDetailHtml(club){
   const due = clubTotalDue(club), paid = clubTotalPaid(club);
   const pct = due>0 ? Math.min(100, Math.round(paid/due*100)) : 0;
+  const entries = clubPaymentEntries(club);
   return `
+    ${club.photo ? `<div style="text-align:center;margin-bottom:12px;"><img src="${club.photo}" style="width:90px;height:90px;border-radius:16px;object-fit:cover;"></div>` : ''}
+    <div class="grid-stats" style="margin-bottom:14px;">
+      <div class="stat-box"><div class="num">${money(sumByPeriod(entries,'day'))}</div><div class="label">Payé aujourd'hui</div></div>
+      <div class="stat-box"><div class="num">${money(sumByPeriod(entries,'month'))}</div><div class="label">Payé ce mois</div></div>
+      <div class="stat-box"><div class="num">${money(sumByPeriod(entries,'year'))}</div><div class="label">Payé cette année</div></div>
+      <div class="stat-box plain"><div class="num">${money(paid)}</div><div class="label">Total payé (saison)</div></div>
+    </div>
     <table class="table">
-      <thead><tr><th class="label-col">Catégorie</th><th>Licenciés</th><th>G</th><th>F</th><th>Payé</th></tr></thead>
+      <thead><tr><th class="label-col">Catégorie</th><th>Licenciés</th><th>G</th><th>F</th><th>Payé / Dû</th><th>Statut</th></tr></thead>
       <tbody>
         ${CATS.map(cat=>{
           const c = club.categories[cat];
@@ -289,17 +375,20 @@ function clubDetailHtml(club){
             <td class="label-col">${CAT_LABELS[cat]}</td>
             <td>${c.licenses}</td><td>${c.male}</td><td>${c.female}</td>
             <td>${money(catPaid(club,cat))} / ${money(catDue(club,cat))}</td>
+            <td>${statusCellHtml(club.payments[cat], catDue(club,cat))}</td>
           </tr>`;
         }).join('')}
         <tr>
           <td class="label-col"><b>Entraîneurs</b></td>
           <td colspan="3">${club.coachesCount||0}</td>
           <td>${money(coachPaid(club))} / ${money(coachDue(club))}</td>
+          <td>${statusCellHtml(club.payments.coaches, coachDue(club))}</td>
         </tr>
         <tr>
           <td class="label-col"><b>Arbitres</b></td>
           <td colspan="3">${club.refereesCount||0}</td>
           <td>${money(refereePaid(club))} / ${money(refereeDue(club))}</td>
+          <td>${statusCellHtml(club.payments.referees, refereeDue(club))}</td>
         </tr>
       </tbody>
     </table>
@@ -334,18 +423,32 @@ function openClubModal(clubId){
   openModal(`
     <button class="close-x" onclick="closeModal()">×</button>
     <div class="modal-title">${isNew?'Ajouter un club':'Modifier le club'}</div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <img id="photoPreview" src="${club.photo||''}" style="width:90px;height:90px;border-radius:16px;object-fit:cover;background:var(--card-2);display:${club.photo?'block':'none'};margin:0 auto 8px;">
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;">
+      <button type="button" class="btn btn-small btn-secondary" onclick="document.getElementById('photoInput').click()">📷 Choisir / Prendre une photo du club</button>
+    </div>
     <div class="form-group"><label>Nom du club</label><input id="f_name" value="${esc(club.name)}"></div>
     <div class="form-group"><label>Directeur du club</label><input id="f_manager" value="${esc(club.manager)}"></div>
     <div class="form-group"><label>Nombre d'entraîneurs</label><input id="f_coaches" type="number" min="0" value="${club.coachesCount||0}"></div>
     <div class="form-group"><label>Nombre d'arbitres</label><input id="f_referees" type="number" min="0" value="${club.refereesCount||0}"></div>
-    <h4 style="color:var(--green-dark);font-size:13px;margin:14px 0 6px;">Judokas par catégorie</h4>
+    <h4 style="color:#fff;font-size:13px;margin:14px 0 6px;font-weight:700;">Judokas par catégorie</h4>
     ${CATS.map(cat=>`
       <div class="form-group">
         <label>${CAT_LABELS[cat]}</label>
         <div class="form-row">
-          <input type="number" min="0" placeholder="Licenciés" id="cat_${cat}_lic" value="${club.categories[cat].licenses}">
-          <input type="number" min="0" placeholder="Garçons" id="cat_${cat}_m" value="${club.categories[cat].male}">
-          <input type="number" min="0" placeholder="Filles" id="cat_${cat}_f" value="${club.categories[cat].female}">
+          <div>
+            <label style="font-size:10.5px;">Licenciés</label>
+            <input type="number" min="0" id="cat_${cat}_lic" value="${club.categories[cat].licenses}">
+          </div>
+          <div>
+            <label style="font-size:10.5px;">Garçons</label>
+            <input type="number" min="0" id="cat_${cat}_m" value="${club.categories[cat].male}">
+          </div>
+          <div>
+            <label style="font-size:10.5px;">Filles</label>
+            <input type="number" min="0" id="cat_${cat}_f" value="${club.categories[cat].female}">
+          </div>
         </div>
       </div>
     `).join('')}
@@ -354,6 +457,16 @@ function openClubModal(clubId){
       <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
     </div>
   `);
+
+  document.getElementById('photoInput').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const dataUrl = await readAndCompressImage(file);
+    club.photo = dataUrl;
+    const img = document.getElementById('photoPreview');
+    img.src = dataUrl;
+    img.style.display = 'block';
+  });
 
   document.getElementById('saveClubBtn').addEventListener('click', async ()=>{
     club.name = document.getElementById('f_name').value.trim();
@@ -401,7 +514,7 @@ function renderPaymentModalBody(club){
       </select>
     </div>
     <div id="paymentHistory"></div>
-    <h4 style="color:var(--green-dark);font-size:13px;margin:14px 0 6px;">Ajouter un versement</h4>
+    <h4 style="color:#fff;font-size:13px;margin:14px 0 6px;font-weight:700;">Ajouter un versement</h4>
     <div class="form-row">
       <input type="number" min="0" id="payAmount" placeholder="Montant (DA)">
       <input type="date" id="payDate" value="${todayStr()}">
@@ -419,7 +532,7 @@ function renderPaymentModalBody(club){
     const date = document.getElementById('payDate').value || todayStr();
     const payer = document.getElementById('payPayer').value.trim();
     if(amount<=0){ alert('Montant invalide'); return; }
-    club.payments[key].push({ amount, date, payer });
+    club.payments[key].push({ amount, date, payer, time: new Date().toISOString() });
     await saveState();
     document.getElementById('payAmount').value='';
     document.getElementById('payPayer').value='';
@@ -440,7 +553,10 @@ function refreshPaymentHistory(club){
       list.map((p,i)=>`
         <div class="payment-entry">
           <span>${new Date(p.date).toLocaleDateString('fr-FR')} — ${money(p.amount)} ${p.payer?('— '+esc(p.payer)):''}</span>
-          <button class="btn btn-small btn-danger" onclick="removePayment('${club.id}','${key}',${i})">✕</button>
+          <span>
+            <button class="btn btn-small btn-outline" onclick="printPaymentReceipt('${club.id}','${key}',${i})">🖨️</button>
+            <button class="btn btn-small btn-danger" onclick="removePayment('${club.id}','${key}',${i})">✕</button>
+          </span>
         </div>
       `).join('')
     }
@@ -453,6 +569,43 @@ async function removePayment(clubId, key, index){
   await saveState();
   refreshPaymentHistory(club);
   renderTab('clubs');
+}
+
+function posteLabel(key){
+  if(key==='coaches') return 'Entraîneurs';
+  if(key==='referees') return 'Arbitres';
+  return CAT_LABELS[key];
+}
+
+function printPaymentReceipt(clubId, key, index){
+  const club = STATE.clubs.find(c=>c.id===clubId);
+  const list = club.payments[key] || [];
+  const p = list[index];
+  if(!p) return;
+  const due = key==='coaches' ? coachDue(club) : (key==='referees' ? refereeDue(club) : catDue(club,key));
+  const paidSoFar = list.slice(0, index+1).reduce((s,x)=>s+Number(x.amount||0),0);
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Reçu — ${esc(club.name)}</title>
+    <style>body{font-family:Arial;padding:30px;} .box{border:1px solid #333;padding:24px;max-width:420px;margin:0 auto;} h2{text-align:center;margin-top:0;} table{width:100%;border-collapse:collapse;margin-top:14px;} td{padding:6px 0;font-size:14px;} td.l{color:#555;} td.v{text-align:right;font-weight:bold;}</style>
+    </head><body>
+    <div class="box">
+      <h2>Ligue de Judo — Wilaya de Blida</h2>
+      <p style="text-align:center;color:#555;">Reçu de versement — Saison ${STATE.currentSeason}</p>
+      <table>
+        <tr><td class="l">Club</td><td class="v">${esc(club.name)}</td></tr>
+        <tr><td class="l">Poste</td><td class="v">${posteLabel(key)}</td></tr>
+        <tr><td class="l">Montant versé</td><td class="v">${money(p.amount)}</td></tr>
+        <tr><td class="l">Date</td><td class="v">${new Date(p.date).toLocaleDateString('fr-FR')}</td></tr>
+        <tr><td class="l">Heure d'enregistrement</td><td class="v">${p.time?new Date(p.time).toLocaleTimeString('fr-FR'):'—'}</td></tr>
+        <tr><td class="l">Payé par</td><td class="v">${esc(p.payer||'—')}</td></tr>
+        <tr><td class="l">Total payé (${posteLabel(key)})</td><td class="v">${money(paidSoFar)} / ${money(due)}</td></tr>
+      </table>
+    </div>
+    </body></html>
+  `);
+  w.document.close();
+  w.print();
 }
 
 function printClub(clubId){
@@ -472,9 +625,9 @@ function printClub(clubId){
       <tr><td>Arbitres</td><td colspan="3">${club.refereesCount||0}</td><td>${money(refereePaid(club))}</td><td>${money(refereeDue(club))}</td></tr>
     </table>
     <h4>Détail des versements</h4>
-    <table><tr><th>Poste</th><th>Date</th><th>Montant</th><th>Payé par</th></tr>
+    <table><tr><th>Poste</th><th>Date</th><th>Heure</th><th>Montant</th><th>Payé par</th></tr>
     ${[...CATS.map(cat=>club.payments[cat].map(p=>({...p,poste:CAT_LABELS[cat]}))).flat(), club.payments.coaches.map(p=>({...p,poste:'Entraîneurs'})), (club.payments.referees||[]).map(p=>({...p,poste:'Arbitres'}))].flat()
-      .map(p=>`<tr><td>${p.poste}</td><td>${new Date(p.date).toLocaleDateString('fr-FR')}</td><td>${money(p.amount)}</td><td>${esc(p.payer||'')}</td></tr>`).join('')}
+      .map(p=>`<tr><td>${p.poste}</td><td>${new Date(p.date).toLocaleDateString('fr-FR')}</td><td>${p.time?new Date(p.time).toLocaleTimeString('fr-FR'):'—'}</td><td>${money(p.amount)}</td><td>${esc(p.payer||'')}</td></tr>`).join('')}
     </table>
     </body></html>
   `);
@@ -542,6 +695,165 @@ function renderStats(main){
       </table>
     </div>
   `;
+}
+
+/* ============================================================
+   JOURNAL DES REGLEMENTS (registre de tous les versements)
+   ============================================================ */
+function allPaymentEntriesDetailed(clubs){
+  const list = [];
+  clubs.forEach(club=>{
+    CATS.forEach(cat=>{
+      (club.payments[cat]||[]).forEach((p,i)=> list.push({...p, clubId:club.id, clubName:club.name, key:cat, poste:CAT_LABELS[cat]}));
+    });
+    (club.payments.coaches||[]).forEach((p,i)=> list.push({...p, clubId:club.id, clubName:club.name, key:'coaches', poste:'Entraîneurs'}));
+    (club.payments.referees||[]).forEach((p,i)=> list.push({...p, clubId:club.id, clubName:club.name, key:'referees', poste:'Arbitres'}));
+  });
+  return list.sort((a,b)=> new Date(b.date) - new Date(a.date));
+}
+
+function renderJournal(main){
+  main.innerHTML = `
+    <div class="card">
+      <h3>Journal des règlements</h3>
+      <p class="card-desc">Historique de tous les versements reçus. Recherchez par nom de club ou par date.</p>
+      <div class="search-row">
+        <input type="text" id="journalClubSearch" placeholder="Nom du club...">
+        <input type="date" id="journalDateSearch">
+        <button class="btn btn-secondary" id="journalClearBtn">Réinitialiser</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimer ce journal</button>
+      </div>
+      <div id="journalTotal" style="font-size:12.5px;color:var(--text-muted);margin-bottom:8px;"></div>
+      <div id="journalList"></div>
+    </div>
+  `;
+  const renderList = ()=>{
+    const q = document.getElementById('journalClubSearch').value.trim().toLowerCase();
+    const d = document.getElementById('journalDateSearch').value;
+    let entries = allPaymentEntriesDetailed(STATE.clubs);
+    if(q) entries = entries.filter(e=>e.clubName.toLowerCase().includes(q));
+    if(d) entries = entries.filter(e=>e.date === d);
+    const total = entries.reduce((s,e)=>s+Number(e.amount||0),0);
+    document.getElementById('journalTotal').textContent = `${entries.length} versement(s) — total ${money(total)}`;
+    const list = document.getElementById('journalList');
+    if(entries.length===0){ list.innerHTML = emptyState('Aucun versement trouvé.'); return; }
+    list.innerHTML = `
+      <table class="table">
+        <thead><tr><th class="label-col">Club</th><th>Poste</th><th>Montant</th><th>Date</th><th>Heure</th><th>Payé par</th><th></th></tr></thead>
+        <tbody>
+          ${entries.map(e=>`
+            <tr>
+              <td class="label-col">${esc(e.clubName)}</td>
+              <td>${e.poste}</td>
+              <td>${money(e.amount)}</td>
+              <td>${new Date(e.date).toLocaleDateString('fr-FR')}</td>
+              <td>${e.time?new Date(e.time).toLocaleTimeString('fr-FR'):'—'}</td>
+              <td>${esc(e.payer||'')}</td>
+              <td><button class="btn btn-small btn-outline no-print" onclick="openClubDetail('${e.clubId}')">Voir</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  };
+  document.getElementById('journalClubSearch').addEventListener('input', renderList);
+  document.getElementById('journalDateSearch').addEventListener('input', renderList);
+  document.getElementById('journalClearBtn').addEventListener('click', ()=>{
+    document.getElementById('journalClubSearch').value='';
+    document.getElementById('journalDateSearch').value='';
+    renderList();
+  });
+  renderList();
+}
+
+/* ============================================================
+   CAISSE DE LA LIGUE (versements de l'argent collecté à la trésorerie)
+   ============================================================ */
+function renderCaisse(main){
+  const deposits = (STATE.treasury||[]).slice().sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const total = deposits.reduce((s,d)=>s+Number(d.amount||0),0);
+  main.innerHTML = `
+    <div class="card">
+      <h3>Caisse de la Ligue</h3>
+      <p class="card-desc">Enregistrez ici chaque fois que vous remettez l'argent collecté auprès des clubs à la trésorerie de la Ligue.</p>
+      <div class="grid-stats" style="margin-bottom:14px;">
+        <div class="stat-box plain"><div class="num">${money(total)}</div><div class="label">Total remis à la trésorerie</div></div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;">
+        <input type="number" min="0" id="depAmount" placeholder="Montant remis (DA)">
+        <input type="date" id="depDate" value="${todayStr()}">
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-primary" id="addDepositBtn">Enregistrer la remise</button>
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimer l'archive</button>
+      </div>
+      <div id="depositsList"></div>
+    </div>
+  `;
+  const renderList = ()=>{
+    const list = document.getElementById('depositsList');
+    if(deposits.length===0){ list.innerHTML = emptyState('Aucune remise enregistrée.'); return; }
+    list.innerHTML = `
+      <table class="table">
+        <thead><tr><th class="label-col">Date</th><th>Montant</th><th></th></tr></thead>
+        <tbody>
+          ${deposits.map((d)=>{
+            const realIdx = STATE.treasury.indexOf(d);
+            return `<tr>
+              <td class="label-col">${new Date(d.date).toLocaleDateString('fr-FR')}</td>
+              <td>${money(d.amount)}</td>
+              <td>
+                <button class="btn btn-small btn-outline no-print" onclick="printDepositReceipt(${realIdx})">🖨️</button>
+                <button class="btn btn-small btn-danger no-print" onclick="removeDeposit(${realIdx})">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  };
+  renderList();
+  document.getElementById('addDepositBtn').addEventListener('click', async ()=>{
+    const amount = Number(document.getElementById('depAmount').value)||0;
+    const date = document.getElementById('depDate').value || todayStr();
+    if(amount<=0){ alert('Montant invalide'); return; }
+    if(!STATE.treasury) STATE.treasury = [];
+    STATE.treasury.push({ id: uid(), amount, date, time: new Date().toISOString() });
+    await saveState();
+    renderCaisse(main);
+  });
+}
+
+async function removeDeposit(index){
+  if(!confirm('Supprimer cette remise ?')) return;
+  STATE.treasury.splice(index,1);
+  await saveState();
+  renderTab('caisse');
+}
+
+function printDepositReceipt(index){
+  const d = STATE.treasury[index];
+  if(!d) return;
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Reçu de remise</title>
+    <style>body{font-family:Arial;padding:30px;} .box{border:1px solid #333;padding:24px;max-width:420px;margin:0 auto;} h2{text-align:center;margin-top:0;} table{width:100%;border-collapse:collapse;margin-top:14px;} td{padding:6px 0;font-size:14px;} td.l{color:#555;} td.v{text-align:right;font-weight:bold;}</style>
+    </head><body>
+    <div class="box">
+      <h2>Ligue de Judo — Wilaya de Blida</h2>
+      <p style="text-align:center;color:#555;">Reçu de remise à la trésorerie</p>
+      <table>
+        <tr><td class="l">Montant remis</td><td class="v">${money(d.amount)}</td></tr>
+        <tr><td class="l">Date</td><td class="v">${new Date(d.date).toLocaleDateString('fr-FR')}</td></tr>
+        <tr><td class="l">Heure d'enregistrement</td><td class="v">${d.time?new Date(d.time).toLocaleTimeString('fr-FR'):'—'}</td></tr>
+      </table>
+    </div>
+    </body></html>
+  `);
+  w.document.close();
+  w.print();
 }
 
 /* ============================================================
