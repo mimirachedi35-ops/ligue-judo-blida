@@ -122,7 +122,7 @@ function emptyPayments(){
   return o;
 }
 function newClub(){
-  return { id: uid(), name:'', manager:'', categories: emptyCategories(), coachesCount:0, refereesCount:0, payments: emptyPayments() };
+  return { id: uid(), name:'', manager:'', email:'', phone:'', categories: emptyCategories(), coachesCount:0, refereesCount:0, payments: emptyPayments() };
 }
 function catDue(club, cat){ return (club.categories[cat]?.licenses||0) * (STATE.settings.prices[cat]||0); }
 function catPaid(club, cat){ return (club.payments[cat]||[]).reduce((s,p)=>s+Number(p.amount||0),0); }
@@ -404,6 +404,7 @@ function openClubDetail(clubId){
     <button class="close-x" onclick="closeModal()">×</button>
     <div class="modal-title">${esc(club.name)||'(Sans nom)'}</div>
     <p style="font-size:12.5px;color:var(--text-muted);margin-top:-10px;">Directeur du club : ${esc(club.manager)||'—'}</p>
+    <p style="font-size:12.5px;color:var(--text-muted);margin-top:-8px;">📞 ${esc(club.phone)||'—'} &nbsp;|&nbsp; ✉️ ${esc(club.email)||'—'}</p>
     <div id="clubDetailBody">${clubDetailHtml(club)}</div>
     <div class="btn-row" style="margin-top:16px;">
       <button class="btn btn-small btn-secondary" onclick="openPaymentModal('${club.id}')">💰 Règlements</button>
@@ -425,11 +426,15 @@ function openClubModal(clubId){
     <div class="modal-title">${isNew?'Ajouter un club':'Modifier le club'}</div>
     <div style="text-align:center;margin-bottom:14px;">
       <img id="photoPreview" src="${club.photo||''}" style="width:90px;height:90px;border-radius:16px;object-fit:cover;background:var(--card-2);display:${club.photo?'block':'none'};margin:0 auto 8px;">
-      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="photoInput" accept="image/*" style="display:none;">
       <button type="button" class="btn btn-small btn-secondary" onclick="document.getElementById('photoInput').click()">📷 Choisir / Prendre une photo du club</button>
     </div>
     <div class="form-group"><label>Nom du club</label><input id="f_name" value="${esc(club.name)}"></div>
     <div class="form-group"><label>Directeur du club</label><input id="f_manager" value="${esc(club.manager)}"></div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr;">
+      <div class="form-group"><label>Téléphone</label><input id="f_phone" type="tel" value="${esc(club.phone)}"></div>
+      <div class="form-group"><label>E-mail</label><input id="f_email" type="email" value="${esc(club.email)}"></div>
+    </div>
     <div class="form-group"><label>Nombre d'entraîneurs</label><input id="f_coaches" type="number" min="0" value="${club.coachesCount||0}"></div>
     <div class="form-group"><label>Nombre d'arbitres</label><input id="f_referees" type="number" min="0" value="${club.refereesCount||0}"></div>
     <h4 style="color:#fff;font-size:13px;margin:14px 0 6px;font-weight:700;">Judokas par catégorie</h4>
@@ -471,6 +476,8 @@ function openClubModal(clubId){
   document.getElementById('saveClubBtn').addEventListener('click', async ()=>{
     club.name = document.getElementById('f_name').value.trim();
     club.manager = document.getElementById('f_manager').value.trim();
+    club.phone = document.getElementById('f_phone').value.trim();
+    club.email = document.getElementById('f_email').value.trim();
     club.coachesCount = Number(document.getElementById('f_coaches').value)||0;
     club.refereesCount = Number(document.getElementById('f_referees').value)||0;
     CATS.forEach(cat=>{
@@ -617,7 +624,7 @@ function printClub(clubId){
     </head><body>
     <h2>Ligue de Judo Blida — Saison ${STATE.currentSeason}</h2>
     <h3>${esc(club.name)}</h3>
-    <p>Directeur du club : ${esc(club.manager)||'—'} | Entraîneurs : ${club.coachesCount||0} | Arbitres : ${club.refereesCount||0}</p>
+    <p>Directeur du club : ${esc(club.manager)||'—'} | Tél : ${esc(club.phone)||'—'} | E-mail : ${esc(club.email)||'—'} | Entraîneurs : ${club.coachesCount||0} | Arbitres : ${club.refereesCount||0}</p>
     <table>
       <tr><th>Catégorie</th><th>Licenciés</th><th>Garçons</th><th>Filles</th><th>Payé</th><th>Dû</th></tr>
       ${CATS.map(cat=>`<tr><td>${CAT_LABELS[cat]}</td><td>${club.categories[cat].licenses}</td><td>${club.categories[cat].male}</td><td>${club.categories[cat].female}</td><td>${money(catPaid(club,cat))}</td><td>${money(catDue(club,cat))}</td></tr>`).join('')}
