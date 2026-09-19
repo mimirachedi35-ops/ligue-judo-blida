@@ -77,6 +77,9 @@ document.getElementById('logoutBtn').addEventListener('click', async ()=>{
 async function loadStateAndStart(){
   STATE = await api('/api/state');
   if(!STATE.treasury) STATE.treasury = [];
+  if(!STATE.remittances) STATE.remittances = [];
+  if(!STATE.kazaOmar) STATE.kazaOmar = [];
+  if(!STATE.settings.split) STATE.settings.split = {};
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('loginSeason').textContent = STATE.currentSeason;
@@ -105,9 +108,11 @@ function renderTab(tab){
   if(tab==='clubs') return renderClubs(main);
   if(tab==='journal') return renderJournal(main);
   if(tab==='caisse') return renderCaisse(main);
+  if(tab==='federation') return renderFederation(main);
   if(tab==='stats') return renderStats(main);
   if(tab==='archives') return renderArchives(main);
   if(tab==='settings') return renderSettings(main);
+  if(tab==='kazaOmar') return renderKazaOmar(main);
 }
 
 /* ---------------- HELPERS DE CALCUL ---------------- */
@@ -861,6 +866,254 @@ function printDepositReceipt(index){
   `);
   w.document.close();
   w.print();
+}
+
+/* ============================================================
+   LIGUE / FEDERATION (répartition du prix de la licence + versements)
+   ============================================================ */
+const ALL_POSTS = [...CATS, 'coaches', 'referees'];
+
+function totalCountForPost(post){
+  if(post==='coaches') return STATE.clubs.reduce((s,c)=>s+(c.coachesCount||0),0);
+  if(post==='referees') return STATE.clubs.reduce((s,c)=>s+(c.refereesCount||0),0);
+  return STATE.clubs.reduce((s,c)=>s+(c.categories[post]?.licenses||0),0);
+}
+
+function splitFor(post){
+  const s = (STATE.settings.split && STATE.settings.split[post]) || {};
+  return { ligue: Number(s.ligue||0), federation: Number(s.federation||0) };
+}
+
+function renderFederation(main){
+  main.innerHTML = `
+    <div class="card">
+      <h3>Répartition Ligue / Fédération</h3>
+      <p class="card-desc">Pour chaque licence (judokas, entraîneurs, arbitres), indiquez la part qui revient à la Ligue et celle qui revient à la Fédération Algérienne de Judo.</p>
+      <table class="table">
+        <thead><tr><th class="label-col">Poste</th><th>Part Ligue (DA)</th><th>Part Fédération (DA)</th></tr></thead>
+        <tbody>
+          ${ALL_POSTS.map(p=>{
+            const sp = splitFor(p);
+            return `<tr>
+              <td class="label-col">${posteLabel(p)}</td>
+              <td><input type="number" min="0" id="split_${p}_l" value="${sp.ligue}" style="width:90px;padding:6px;border-radius:6px;border:1px solid var(--border);background:#0f0f0f;color:#fff;"></td>
+              <td><input type="number" min="0" id="split_${p}_f" value="${sp.federation}" style="width:90px;padding:6px;border-radius:6px;border:1px solid var(--border);background:#0f0f0f;color:#fff;"></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn btn-primary" id="saveSplitBtn">Enregistrer la répartition</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Montants dus selon les licences enregistrées</h3>
+      <p class="card-desc">Calculé automatiquement à partir du nombre de licences saisies dans les fiches des clubs.</p>
+      <div class="btn-row"><button class="btn btn-outline" onclick="window.print()">🖨️ Imprimer</button></div>
+      <table class="table" id="federationDueTable"></table>
+    </div>
+
+    <div class="card">
+      <h3>Versements effectués</h3>
+      <p class="card-desc">Enregistrez ici chaque versement que vous remettez à la Fédération ou à la Ligue (possible en plusieurs fois).</p>
+      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
+        <select id="remDest">
+          <option value="federation">Fédération</option>
+          <option value="ligue">Ligue</option>
+        </select>
+        <input type="number" min="0" id="remAmount" placeholder="Montant (DA)">
+        <input type="date" id="remDate" value="${todayStr()}">
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-primary" id="addRemBtn">Enregistrer le versement</button>
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimer l'historique</button>
+      </div>
+      <div id="remTotals" class="grid-stats" style="margin-bottom:14px;"></div>
+      <div id="remList"></div>
+    </div>
+  `;
+  refreshFederationDueTable();
+  refreshRemittancesList();
+
+  document.getElementById('saveSplitBtn').addEventListener('click', async ()=>{
+    if(!STATE.settings.split) STATE.settings.split = {};
+    ALL_POSTS.forEach(p=>{
+      STATE.settings.split[p] = {
+        ligue: Number(document.getElementById(`split_${p}_l`).value)||0,
+        federation: Number(document.getElementById(`split_${p}_f`).value)||0
+      };
+    });
+    await saveState();
+    refreshFederationDueTable();
+    alert('Répartition enregistrée.');
+  });
+
+  document.getElementById('addRemBtn').addEventListener('click', async ()=>{
+    const dest = document.getElementById('remDest').value;
+    const amount = Number(document.getElementById('remAmount').value)||0;
+    const date = document.getElementById('remDate').value || todayStr();
+    if(amount<=0){ alert('Montant invalide'); return; }
+    if(!STATE.remittances) STATE.remittances = [];
+    STATE.remittances.push({ id: uid(), dest, amount, date, time: new Date().toISOString() });
+    await saveState();
+    document.getElementById('remAmount').value='';
+    refreshRemittancesList();
+  });
+}
+
+function refreshFederationDueTable(){
+  const el = document.getElementById('federationDueTable');
+  if(!el) return;
+  let totalL = 0, totalF = 0;
+  el.innerHTML = `
+    <thead><tr><th class="label-col">Poste</th><th>Nb</th><th>Total Ligue</th><th>Total Fédération</th></tr></thead>
+    <tbody>
+      ${ALL_POSTS.map(p=>{
+        const n = totalCountForPost(p);
+        const sp = splitFor(p);
+        const l = n*sp.ligue, f = n*sp.federation;
+        totalL += l; totalF += f;
+        return `<tr><td class="label-col">${posteLabel(p)}</td><td>${n}</td><td>${money(l)}</td><td>${money(f)}</td></tr>`;
+      }).join('')}
+      <tr><td class="label-col"><b>Total</b></td><td></td><td><b>${money(totalL)}</b></td><td><b>${money(totalF)}</b></td></tr>
+    </tbody>
+  `;
+}
+
+function refreshRemittancesList(){
+  const chrono = (STATE.remittances||[]).slice().sort((a,b)=> new Date(a.date) - new Date(b.date) || new Date(a.time)-new Date(b.time));
+  let runL = 0, runF = 0;
+  const withRunning = chrono.map(r=>{
+    if(r.dest==='ligue') runL += Number(r.amount||0); else runF += Number(r.amount||0);
+    return { ...r, runningLigue: runL, runningFederation: runF };
+  });
+  const totalsEl = document.getElementById('remTotals');
+  totalsEl.innerHTML = `
+    <div class="stat-box plain"><div class="num">${money(runF)}</div><div class="label">Total versé à la Fédération</div></div>
+    <div class="stat-box plain"><div class="num">${money(runL)}</div><div class="label">Total versé à la Ligue</div></div>
+  `;
+  const list = document.getElementById('remList');
+  const display = withRunning.slice().reverse();
+  if(display.length===0){ list.innerHTML = emptyState('Aucun versement enregistré.'); return; }
+  list.innerHTML = `
+    <table class="table">
+      <thead><tr><th class="label-col">Destinataire</th><th>Montant</th><th>Date</th><th>Total cumulé</th><th></th></tr></thead>
+      <tbody>
+        ${display.map(r=>{
+          const realIdx = STATE.remittances.findIndex(x=>x.id===r.id);
+          const cumul = r.dest==='ligue' ? r.runningLigue : r.runningFederation;
+          return `<tr>
+            <td class="label-col">${r.dest==='ligue'?'Ligue':'Fédération'}</td>
+            <td>${money(r.amount)}</td>
+            <td>${new Date(r.date).toLocaleDateString('fr-FR')}</td>
+            <td>${money(cumul)}</td>
+            <td>
+              <button class="btn btn-small btn-outline no-print" onclick="printRemittanceReceipt('${r.id}')">🖨️</button>
+              <button class="btn btn-small btn-danger no-print" onclick="removeRemittance('${r.id}')">✕</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function removeRemittance(id){
+  if(!confirm('Supprimer ce versement ?')) return;
+  STATE.remittances = STATE.remittances.filter(r=>r.id!==id);
+  await saveState();
+  refreshRemittancesList();
+}
+
+function printRemittanceReceipt(id){
+  const chrono = (STATE.remittances||[]).slice().sort((a,b)=> new Date(a.date) - new Date(b.date) || new Date(a.time)-new Date(b.time));
+  let runL = 0, runF = 0, target = null;
+  chrono.forEach(r=>{
+    if(r.dest==='ligue') runL += Number(r.amount||0); else runF += Number(r.amount||0);
+    if(r.id===id) target = { ...r, cumul: r.dest==='ligue' ? runL : runF };
+  });
+  if(!target) return;
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Reçu de versement</title>
+    <style>body{font-family:Arial;padding:30px;} .box{border:1px solid #333;padding:24px;max-width:420px;margin:0 auto;} h2{text-align:center;margin-top:0;} table{width:100%;border-collapse:collapse;margin-top:14px;} td{padding:6px 0;font-size:14px;} td.l{color:#555;} td.v{text-align:right;font-weight:bold;}</style>
+    </head><body>
+    <div class="box">
+      <h2>Ligue de Judo — Wilaya de Blida</h2>
+      <p style="text-align:center;color:#555;">Reçu de versement à la ${target.dest==='ligue'?'Ligue':'Fédération'}</p>
+      <table>
+        <tr><td class="l">Montant de ce versement</td><td class="v">${money(target.amount)}</td></tr>
+        <tr><td class="l">Date</td><td class="v">${new Date(target.date).toLocaleDateString('fr-FR')}</td></tr>
+        <tr><td class="l">Heure d'enregistrement</td><td class="v">${target.time?new Date(target.time).toLocaleTimeString('fr-FR'):'—'}</td></tr>
+        <tr><td class="l">Total versé à ce jour (${target.dest==='ligue'?'Ligue':'Fédération'})</td><td class="v">${money(target.cumul)}</td></tr>
+      </table>
+    </div>
+    </body></html>
+  `);
+  w.document.close();
+  w.print();
+}
+
+/* ============================================================
+   KAZA OMAR (registre personnel indépendant, non lié au reste)
+   ============================================================ */
+function renderKazaOmar(main){
+  const entries = (STATE.kazaOmar||[]).slice().sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const total = (STATE.kazaOmar||[]).reduce((s,e)=>s+Number(e.amount||0),0);
+  main.innerHTML = `
+    <div class="card">
+      <h3>Kaza Omar</h3>
+      <p class="card-desc">Registre personnel et indépendant — sans lien avec les clubs, la ligue ou les statistiques.</p>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;">
+        <input type="number" min="0" id="kazaAmount" placeholder="Montant reçu (DA)">
+        <input type="date" id="kazaDate" value="${todayStr()}">
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-primary" id="addKazaBtn">Enregistrer</button>
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimer</button>
+      </div>
+      <div id="kazaList"></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div class="stat-box plain" style="max-width:260px;"><div class="num">${money(total)}</div><div class="label">Total général reçu</div></div>
+      </div>
+    </div>
+  `;
+  const list = document.getElementById('kazaList');
+  if(entries.length===0){ list.innerHTML = emptyState('Aucune entrée enregistrée.'); }
+  else{
+    list.innerHTML = `
+      <table class="table">
+        <thead><tr><th class="label-col">Date</th><th>Montant</th><th></th></tr></thead>
+        <tbody>
+          ${entries.map(e=>{
+            const realIdx = STATE.kazaOmar.findIndex(x=>x.id===e.id);
+            return `<tr>
+              <td class="label-col">${new Date(e.date).toLocaleDateString('fr-FR')}</td>
+              <td>${money(e.amount)}</td>
+              <td><button class="btn btn-small btn-danger no-print" onclick="removeKazaEntry('${e.id}')">✕</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+  document.getElementById('addKazaBtn').addEventListener('click', async ()=>{
+    const amount = Number(document.getElementById('kazaAmount').value)||0;
+    const date = document.getElementById('kazaDate').value || todayStr();
+    if(amount<=0){ alert('Montant invalide'); return; }
+    if(!STATE.kazaOmar) STATE.kazaOmar = [];
+    STATE.kazaOmar.push({ id: uid(), amount, date });
+    await saveState();
+    renderKazaOmar(main);
+  });
+}
+
+async function removeKazaEntry(id){
+  if(!confirm('Supprimer cette entrée ?')) return;
+  STATE.kazaOmar = STATE.kazaOmar.filter(e=>e.id!==id);
+  await saveState();
+  renderTab('kazaOmar');
 }
 
 /* ============================================================
