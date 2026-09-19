@@ -41,7 +41,9 @@ const StateSchema = new mongoose.Schema({
   },
   clubs: { type: Array, default: [] },
   archives: { type: Array, default: [] },
-  treasury: { type: Array, default: [] }
+  treasury: { type: Array, default: [] },
+  remittances: { type: Array, default: [] },
+  kazaOmar: { type: Array, default: [] }
 }, { minimize: false, strict: false });
 
 const State = mongoose.model('State', StateSchema);
@@ -90,13 +92,15 @@ app.get('/api/state', requireAuth, async (req, res) => {
 
 app.post('/api/state', requireAuth, async (req, res) => {
   try {
-    const { currentSeason, settings, clubs, archives, treasury } = req.body;
+    const { currentSeason, settings, clubs, archives, treasury, remittances, kazaOmar } = req.body;
     const state = await getOrCreateState();
     if (currentSeason !== undefined) state.currentSeason = currentSeason;
     if (settings !== undefined) state.settings = settings;
     if (clubs !== undefined) state.clubs = clubs;
     if (archives !== undefined) state.archives = archives;
     if (treasury !== undefined) state.treasury = treasury;
+    if (remittances !== undefined) state.remittances = remittances;
+    if (kazaOmar !== undefined) state.kazaOmar = kazaOmar;
     await state.save();
     res.json({ success: true, state });
   } catch (e) {
