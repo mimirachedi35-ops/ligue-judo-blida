@@ -508,12 +508,12 @@ async function deleteClub(clubId){
 }
 
 /* ---------- Règlements (paiements) ---------- */
-function openPaymentModal(clubId){
+function openPaymentModal(clubId, preselect){
   const club = STATE.clubs.find(c=>c.id===clubId);
-  renderPaymentModalBody(club);
+  renderPaymentModalBody(club, preselect);
 }
 
-function renderPaymentModalBody(club){
+function renderPaymentModalBody(club, preselect){
   openModal(`
     <button class="close-x" onclick="closeModal()">×</button>
     <div class="modal-title">Règlements — ${esc(club.name)}</div>
@@ -536,6 +536,7 @@ function renderPaymentModalBody(club){
       <button class="btn btn-primary" id="addPaymentBtn">Ajouter le versement</button>
     </div>
   `);
+  if(preselect) document.getElementById('paySelect').value = preselect;
   refreshPaymentHistory(club);
   document.getElementById('paySelect').addEventListener('change', ()=>refreshPaymentHistory(club));
   document.getElementById('addPaymentBtn').addEventListener('click', async ()=>{
@@ -566,6 +567,7 @@ function refreshPaymentHistory(club){
         <div class="payment-entry">
           <span>${new Date(p.date).toLocaleDateString('fr-FR')} — ${money(p.amount)} ${p.payer?('— '+esc(p.payer)):''}</span>
           <span>
+            <button class="btn btn-small btn-outline" onclick="editPayment('${club.id}','${key}',${i})">✏️</button>
             <button class="btn btn-small btn-outline" onclick="printPaymentReceipt('${club.id}','${key}',${i})">🖨️</button>
             <button class="btn btn-small btn-danger" onclick="removePayment('${club.id}','${key}',${i})">✕</button>
           </span>
@@ -581,6 +583,34 @@ async function removePayment(clubId, key, index){
   await saveState();
   refreshPaymentHistory(club);
   renderTab('clubs');
+}
+
+function editPayment(clubId, key, index){
+  const club = STATE.clubs.find(c=>c.id===clubId);
+  const p = club.payments[key][index];
+  if(!p) return;
+  openModal(`
+    <button class="close-x" onclick="closeModal()">×</button>
+    <div class="modal-title">Modifier le versement</div>
+    <p style="font-size:12.5px;color:var(--text-muted);margin-top:-10px;">${esc(club.name)} — ${posteLabel(key)}</p>
+    <div class="form-group"><label>Montant (DA)</label><input type="number" min="0" id="editAmount" value="${p.amount}"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="editDate" value="${p.date}"></div>
+    <div class="form-group"><label>Payé par</label><input type="text" id="editPayer" value="${esc(p.payer||'')}"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveEditPaymentBtn">Enregistrer</button>
+      <button class="btn btn-outline" onclick="openPaymentModal('${clubId}','${key}')">Annuler</button>
+    </div>
+  `);
+  document.getElementById('saveEditPaymentBtn').addEventListener('click', async ()=>{
+    const amount = Number(document.getElementById('editAmount').value)||0;
+    const date = document.getElementById('editDate').value || p.date;
+    const payer = document.getElementById('editPayer').value.trim();
+    if(amount<=0){ alert('Montant invalide'); return; }
+    club.payments[key][index] = { ...p, amount, date, payer };
+    await saveState();
+    openPaymentModal(clubId, key);
+    renderTab('clubs');
+  });
 }
 
 function posteLabel(key){
